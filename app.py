@@ -12,7 +12,6 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "gif"}
 
-# СТРОГОЕ ИСПРАВЛЕНИЕ: Имена классов ровно так, как их считал и отсортировал Colab (с пробелами)
 CLASS_NAMES = [
     "american football",
     "baseball",
@@ -44,7 +43,7 @@ CLASS_DISPLAY = {
     "hockey puck": "Hockey Puck",
     "rugby ball": "Rugby Ball",
     "shuttlecock": "Shuttlecock",
-    "table_tennis_ball": "Table Tennis Ball", # Совместимость с формой вывода
+    "table_tennis_ball": "Table Tennis Ball",
     "table tennis ball": "Table Tennis Ball",
     "tennis ball": "Tennis Ball",
     "volleyball": "Volleyball",
@@ -55,7 +54,7 @@ CLASS_EMOJI = {
     "baseball": "⚾",
     "basketball": "🏀",
     "billiard ball": "🎱",
-    "bowling_ball": "🎳", # Совместимость
+    "bowling_ball": "🎳",
     "bowling ball": "🎳",
     "cricket ball": "🏏",
     "football": "⚽",
@@ -78,8 +77,6 @@ def get_model():
     if _model is None:
         try:
             import tensorflow as tf
-
-            # Путь к вашей финальной модели, сохраненной на шаге 11 ноутбука
             model_path = os.path.join(os.path.dirname(__file__), "model", "sports_ball_model.h5")
             if os.path.exists(model_path):
                 _model = tf.keras.models.load_model(model_path)
@@ -100,7 +97,6 @@ def allowed_file(filename):
 def preprocess_image(image_bytes):
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     img = img.resize((224, 224))
-    # ИСПРАВЛЕНИЕ: Убрали деление на 255.0, так как EfficientNetB0 ожидает сырые пиксели 0-255!
     arr = np.array(img, dtype=np.float32)
     return np.expand_dims(arr, axis=0)
 

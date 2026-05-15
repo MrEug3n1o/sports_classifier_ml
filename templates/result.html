@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SphereID — Result</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0a0a0f;
+      --paper: #f4f1eb;
+      --accent: #e8ff47;
+      --accent2: #ff4d1c;
+      --muted: #8a8880;
+      --conf: {{ 'var(--accent)' if result.confidence > 80 else ('var(--accent2)' if result.confidence > 60 else '#888') }};
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--ink);
+      color: var(--paper);
+      font-family: 'DM Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    .page {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    /* HEADER */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 2rem 3rem;
+      border-bottom: 1px solid rgba(244,241,235,0.1);
+    }
+
+    .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.2rem;
+      letter-spacing: 0.05em;
+      color: var(--paper);
+      text-decoration: none;
+    }
+
+    .logo span { color: var(--accent); }
+
+    .back-btn {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      font-size: 0.82rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      border: 1px solid rgba(244,241,235,0.15);
+      padding: 0.5rem 1.1rem;
+      border-radius: 999px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .back-btn:hover { color: var(--paper); border-color: rgba(244,241,235,0.4); }
+
+    /* MAIN GRID */
+    main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      align-items: stretch;
+    }
+
+    /* IMAGE PANEL */
+    .image-panel {
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+      padding: 3rem;
+      background: #080810;
+      border-right: 1px solid rgba(244,241,235,0.06);
+      min-height: 60vh;
+    }
+
+    .image-frame {
+      position: relative;
+      max-width: 100%;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .uploaded-img {
+      max-width: 100%;
+      max-height: 500px;
+      border-radius: 16px;
+      display: block;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.6);
+    }
+
+    .img-badge {
+      position: absolute;
+      top: -12px; right: -12px;
+      background: var(--ink);
+      border: 1px solid rgba(244,241,235,0.1);
+      border-radius: 999px;
+      padding: 0.4rem 0.9rem;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    {% if result.demo_mode %}
+    .demo-notice {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,77,28,0.1);
+      border: 1px solid rgba(255,77,28,0.3);
+      border-radius: 8px;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.75rem;
+      color: var(--accent2);
+      white-space: nowrap;
+      text-align: center;
+    }
+    {% endif %}
+
+    /* RESULT PANEL */
+    .result-panel {
+      padding: 4rem 3.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+
+    .result-tag {
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .result-emoji {
+      font-size: 5rem;
+      display: block;
+      margin-bottom: 1.2rem;
+      animation: bounce-in 0.5s 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+
+    @keyframes bounce-in {
+      from { opacity: 0; transform: scale(0.4) rotate(-20deg); }
+      to { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+
+    .result-class {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(3rem, 5vw, 5rem);
+      line-height: 0.9;
+      letter-spacing: 0.03em;
+      margin-bottom: 0.6rem;
+    }
+
+    .result-class .class-name { color: var(--accent); }
+
+    /* CONFIDENCE BAR */
+    .confidence-section {
+      margin: 2rem 0;
+    }
+
+    .conf-header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 0.6rem;
+    }
+
+    .conf-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .conf-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.2rem;
+      color: var(--conf);
+    }
+
+    .conf-bar-bg {
+      height: 6px;
+      background: rgba(244,241,235,0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .conf-bar-fill {
+      height: 100%;
+      background: var(--conf);
+      border-radius: 999px;
+      width: 0;
+      transition: width 1.2s cubic-bezier(0.16,1,0.3,1) 0.4s;
+    }
+
+    /* TOP 5 */
+    .top5-section { margin-top: 2.5rem; }
+
+    .top5-title {
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .top5-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+
+    .top5-item {
+      display: flex; align-items: center; gap: 0.75rem;
+      animation: slideIn 0.4s ease both;
+    }
+
+    .top5-item:nth-child(1) { animation-delay: 0.5s; }
+    .top5-item:nth-child(2) { animation-delay: 0.6s; }
+    .top5-item:nth-child(3) { animation-delay: 0.7s; }
+    .top5-item:nth-child(4) { animation-delay: 0.8s; }
+    .top5-item:nth-child(5) { animation-delay: 0.9s; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-12px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .top5-emoji { font-size: 1.2rem; width: 1.5rem; text-align: center; }
+
+    .top5-name {
+      font-size: 0.85rem;
+      font-weight: 400;
+      flex: 1;
+      color: rgba(244,241,235,0.8);
+    }
+
+    .top5-bar-wrap {
+      width: 80px; height: 4px;
+      background: rgba(244,241,235,0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .top5-bar {
+      height: 100%;
+      background: rgba(244,241,235,0.3);
+      border-radius: 999px;
+      width: 0;
+      transition: width 1s ease 0.6s;
+    }
+
+    .top5-item.best .top5-name { color: var(--paper); font-weight: 500; }
+    .top5-item.best .top5-bar { background: var(--conf); }
+
+    .top5-pct {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--muted);
+      width: 40px;
+      text-align: right;
+    }
+
+    .top5-item.best .top5-pct { color: var(--conf); }
+
+    /* ACTIONS */
+    .actions { margin-top: 2.5rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 0.75rem 1.6rem;
+      border-radius: var(--radius);
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn:hover { transform: translateY(-2px); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--ink);
+      box-shadow: 0 0 0 0 rgba(232,255,71,0);
+    }
+
+    .btn-primary:hover { box-shadow: 0 8px 24px rgba(232,255,71,0.2); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--paper);
+      border: 1px solid rgba(244,241,235,0.15);
+    }
+
+    .btn-ghost:hover { border-color: rgba(244,241,235,0.4); }
+
+    /* FOOTER */
+    footer {
+      padding: 1.2rem 3rem;
+      border-top: 1px solid rgba(244,241,235,0.06);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    footer p { font-size: 0.75rem; color: var(--muted); }
+    footer a { color: var(--accent); text-decoration: none; }
+
+    @media (max-width: 768px) {
+      main { grid-template-columns: 1fr; }
+      .image-panel { min-height: 40vh; padding: 2rem 1.5rem; }
+      .result-panel { padding: 2rem 1.5rem; }
+      header { padding: 1.5rem; }
+      footer { padding: 1rem 1.5rem; flex-direction: column; gap: 0.5rem; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <!-- HEADER -->
+  <header>
+    <a href="/" class="logo">Sphere<span>ID</span></a>
+    <a href="/" class="back-btn">
+      ← Try Another
+    </a>
+  </header>
+
+  <main>
+    <!-- IMAGE PANEL -->
+    <div class="image-panel">
+      <div class="image-frame">
+        <img class="uploaded-img" src="{{ image_data }}" alt="Uploaded image" />
+        <span class="img-badge">Your Image</span>
+      </div>
+      {% if result.demo_mode %}
+      <div class="demo-notice">
+        ⚠️ Demo mode — no model loaded. Place your .h5 model in /model/sports_ball_model.h5
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- RESULT PANEL -->
+    <div class="result-panel">
+      <div class="result-tag">Classification Result</div>
+
+      <span class="result-emoji">{{ result.emoji }}</span>
+
+      <div class="result-class">
+        This is a<br>
+        <span class="class-name">{{ result.display }}</span>
+      </div>
+
+      <!-- CONFIDENCE -->
+      <div class="confidence-section">
+        <div class="conf-header">
+          <span class="conf-label">Confidence</span>
+          <span class="conf-value">{{ "%.1f"|format(result.confidence) }}%</span>
+        </div>
+        <div class="conf-bar-bg">
+          <div class="conf-bar-fill" id="confBar" data-val="{{ result.confidence }}"></div>
+        </div>
+      </div>
+
+      <!-- TOP 5 -->
+      <div class="top5-section">
+        <div class="top5-title">Top 5 Predictions</div>
+        <ul class="top5-list">
+          {% for item in result.top5 %}
+          <li class="top5-item {% if loop.first %}best{% endif %}">
+            <span class="top5-emoji">{{ item.emoji }}</span>
+            <span class="top5-name">{{ item.display }}</span>
+            <div class="top5-bar-wrap">
+              <div class="top5-bar" data-val="{{ item.confidence }}"></div>
+            </div>
+            <span class="top5-pct">{{ "%.1f"|format(item.confidence) }}%</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="actions">
+        <a href="/" class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Classify Another
+        </a>
+        <a href="https://www.kaggle.com/datasets/samuelcortinhas/sports-balls-multiclass-image-classification" target="_blank" class="btn btn-ghost">
+          Dataset ↗
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>Dataset: <a href="https://www.kaggle.com/datasets/samuelcortinhas/sports-balls-multiclass-image-classification" target="_blank">Sports Balls — Kaggle</a></p>
+    <p>Built with Flask · TensorFlow · EfficientNetB0</p>
+  </footer>
+</div>
+
+<script>
+  // Animate confidence bar
+  requestAnimationFrame(() => {
+    const bar = document.getElementById('confBar');
+    setTimeout(() => {
+      bar.style.width = bar.dataset.val + '%';
+    }, 100);
+
+    // Animate top5 bars
+    document.querySelectorAll('.top5-bar').forEach(el => {
+      setTimeout(() => {
+        el.style.width = Math.min(parseFloat(el.dataset.val), 100) + '%';
+      }, 200);
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SphereID — Sports Ball Classifier</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0a0a0f;
+      --paper: #f4f1eb;
+      --accent: #e8ff47;
+      --accent2: #ff4d1c;
+      --muted: #8a8880;
+      --radius: 4px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--ink);
+      color: var(--paper);
+      font-family: 'DM Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── NOISE OVERLAY ─────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    /* ── LAYOUT ────────────────────────────────────────────── */
+    .page {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto 1fr;
+    }
+
+    /* ── HEADER ────────────────────────────────────────────── */
+    header {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 2rem 3rem;
+      border-bottom: 1px solid rgba(244,241,235,0.1);
+    }
+
+    .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.2rem;
+      letter-spacing: 0.05em;
+      color: var(--paper);
+    }
+
+    .logo span { color: var(--accent); }
+
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid rgba(244,241,235,0.15);
+      padding: 0.35rem 0.9rem;
+      border-radius: 999px;
+    }
+
+    /* ── LEFT PANEL ────────────────────────────────────────── */
+    .left-panel {
+      padding: 4rem 3rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .tag {
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1.5rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+
+    .tag::before {
+      content: '';
+      display: block; width: 24px; height: 1px;
+      background: var(--accent);
+    }
+
+    h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(3.5rem, 6vw, 6rem);
+      line-height: 0.95;
+      letter-spacing: 0.02em;
+      margin-bottom: 1.5rem;
+    }
+
+    h1 .highlight {
+      color: var(--accent);
+      display: block;
+    }
+
+    .desc {
+      font-size: 1rem;
+      font-weight: 300;
+      line-height: 1.7;
+      color: rgba(244,241,235,0.65);
+      max-width: 36ch;
+      margin-bottom: 3rem;
+    }
+
+    /* ── UPLOAD FORM ───────────────────────────────────────── */
+    .upload-zone {
+      position: relative;
+      border: 1.5px dashed rgba(244,241,235,0.2);
+      border-radius: 12px;
+      padding: 2.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      background: rgba(244,241,235,0.02);
+      max-width: 440px;
+    }
+
+    .upload-zone.drag-over,
+    .upload-zone:hover {
+      border-color: var(--accent);
+      background: rgba(232,255,71,0.03);
+    }
+
+    .upload-zone input[type="file"] {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+
+    .upload-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      display: block;
+      transition: transform 0.3s;
+    }
+
+    .upload-zone:hover .upload-icon { transform: translateY(-4px) scale(1.1); }
+
+    .upload-label {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--paper);
+      display: block;
+      margin-bottom: 0.4rem;
+    }
+
+    .upload-hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .file-preview {
+      margin-top: 1.5rem;
+      display: none;
+      align-items: center;
+      gap: 1rem;
+      background: rgba(232,255,71,0.06);
+      border: 1px solid rgba(232,255,71,0.2);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+    }
+
+    .file-preview.visible { display: flex; }
+
+    .preview-thumb {
+      width: 48px; height: 48px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+
+    .preview-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--paper);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 200px;
+    }
+
+    .preview-size { font-size: 0.75rem; color: var(--muted); }
+
+    .btn-classify {
+      margin-top: 1.5rem;
+      display: inline-flex; align-items: center; gap: 0.6rem;
+      background: var(--accent);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 0.9rem 2rem;
+      border: none; border-radius: var(--radius);
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 0 0 0 rgba(232,255,71,0);
+    }
+
+    .btn-classify:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(232,255,71,0.25);
+    }
+
+    .btn-classify:active { transform: translateY(0); }
+
+    .btn-classify svg { width: 16px; height: 16px; }
+
+    /* ── RIGHT PANEL (visual) ──────────────────────────────── */
+    .right-panel {
+      position: relative;
+      overflow: hidden;
+      background: #0f0f18;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.45;
+      animation: drift 8s ease-in-out infinite alternate;
+    }
+
+    .orb-1 {
+      width: 420px; height: 420px;
+      background: radial-gradient(circle, #e8ff47 0%, transparent 70%);
+      top: -80px; right: -80px;
+      animation-delay: 0s;
+    }
+
+    .orb-2 {
+      width: 320px; height: 320px;
+      background: radial-gradient(circle, #ff4d1c 0%, transparent 70%);
+      bottom: 20%; left: -60px;
+      animation-delay: -3s;
+    }
+
+    .orb-3 {
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, #4d79ff 0%, transparent 70%);
+      bottom: -40px; right: 20%;
+      animation-delay: -5s;
+    }
+
+    @keyframes drift {
+      from { transform: translate(0, 0) scale(1); }
+      to { transform: translate(20px, 30px) scale(1.08); }
+    }
+
+    .balls-grid {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1.2rem;
+      opacity: 0.12;
+      transform: rotate(-8deg) scale(1.15);
+      font-size: 2.8rem;
+      line-height: 1;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .balls-row { display: flex; gap: 1.5rem; }
+
+    .center-card {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(10,10,15,0.7);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(244,241,235,0.08);
+      border-radius: 20px;
+      padding: 2rem 2.5rem;
+      text-align: center;
+      width: min(320px, 90%);
+    }
+
+    .center-card .big-emoji { font-size: 5rem; display: block; margin-bottom: 1rem; animation: spin-slow 12s linear infinite; }
+
+    @keyframes spin-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .center-card h3 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.8rem;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.4rem;
+    }
+
+    .center-card p {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .stat-row {
+      display: flex; justify-content: center; gap: 2rem;
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid rgba(244,241,235,0.08);
+    }
+
+    .stat { text-align: center; }
+    .stat-num {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2rem;
+      color: var(--accent);
+      display: block;
+    }
+    .stat-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+
+    /* ── LOADING OVERLAY ───────────────────────────────────── */
+    .loading-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(10,10,15,0.92);
+      backdrop-filter: blur(8px);
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1.5rem;
+    }
+
+    .loading-overlay.active { display: flex; }
+
+    .spinner {
+      width: 56px; height: 56px;
+      border: 3px solid rgba(232,255,71,0.15);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.5rem;
+      letter-spacing: 0.1em;
+      color: var(--paper);
+    }
+
+    .loading-sub { font-size: 0.8rem; color: var(--muted); }
+
+    /* ── FOOTER ────────────────────────────────────────────── */
+    footer {
+      grid-column: 1 / -1;
+      padding: 1.2rem 3rem;
+      border-top: 1px solid rgba(244,241,235,0.06);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    footer p { font-size: 0.75rem; color: var(--muted); }
+
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── RESPONSIVE ────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .page { grid-template-columns: 1fr; }
+      .right-panel { display: none; }
+      header { padding: 1.5rem; }
+      .left-panel { padding: 2rem 1.5rem; }
+      footer { padding: 1rem 1.5rem; flex-direction: column; gap: 0.5rem; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <!-- HEADER -->
+  <header>
+    <div class="logo">Sphere<span>ID</span></div>
+    <span class="badge">15 classes · 9 000+ images</span>
+  </header>
+
+  <!-- LEFT: UPLOAD FORM -->
+  <main class="left-panel">
+    <div class="tag">AI-Powered Recognition</div>
+    <h1>
+      What's that
+      <span class="highlight">Ball?</span>
+    </h1>
+    <p class="desc">
+      Drop any photo of a sports ball. Our neural network — trained on 9 000+ images across 15 sports — will identify it in seconds.
+    </p>
+
+    <form method="POST" action="/classify" enctype="multipart/form-data" id="uploadForm">
+      <div class="upload-zone" id="dropZone">
+        <input type="file" name="image" id="fileInput" accept="image/*" required />
+        <span class="upload-icon">📸</span>
+        <span class="upload-label">Drop your image here</span>
+        <span class="upload-hint">or click to browse · PNG, JPG, WEBP</span>
+      </div>
+
+      <div class="file-preview" id="preview">
+        <img class="preview-thumb" id="previewImg" src="" alt="preview" />
+        <div>
+          <div class="preview-name" id="previewName"></div>
+          <div class="preview-size" id="previewSize"></div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-classify">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        Classify Ball
+      </button>
+    </form>
+  </main>
+
+  <!-- RIGHT: VISUAL -->
+  <div class="right-panel" aria-hidden="true">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="balls-grid">
+      <div class="balls-row">🏈 ⚾ 🏀 🎱 🎳</div>
+      <div class="balls-row">🏏 ⚽ ⛳ 🏑 🏒</div>
+      <div class="balls-row">🏉 🏸 🏓 🎾 🏐</div>
+      <div class="balls-row">🏈 ⚾ 🏀 🎱 🎳</div>
+      <div class="balls-row">🏏 ⚽ ⛳ 🏑 🏒</div>
+    </div>
+
+    <div class="center-card">
+      <span class="big-emoji">⚽</span>
+      <h3>15 Sports Covered</h3>
+      <p>From shuttlecocks to bowling balls</p>
+      <div class="stat-row">
+        <div class="stat">
+          <span class="stat-num">9K+</span>
+          <span class="stat-label">Images</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">15</span>
+          <span class="stat-label">Classes</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">80%</span>
+          <span class="stat-label">Accuracy</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>Dataset: <a href="https://www.kaggle.com/datasets/samuelcortinhas/sports-balls-multiclass-image-classification" target="_blank">Sports Balls — Kaggle</a></p>
+    <p>Built with Flask · TensorFlow · EfficientNetB0</p>
+  </footer>
+</div>
+
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">Analysing...</div>
+  <div class="loading-sub">Running inference on your image</div>
+</div>
+
+<script>
+  const fileInput = document.getElementById('fileInput');
+  const preview = document.getElementById('preview');
+  const previewImg = document.getElementById('previewImg');
+  const previewName = document.getElementById('previewName');
+  const previewSize = document.getElementById('previewSize');
+  const dropZone = document.getElementById('dropZone');
+  const loading = document.getElementById('loading');
+  const form = document.getElementById('uploadForm');
+
+  fileInput.addEventListener('change', handleFile);
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) {
+      fileInput.files = e.dataTransfer.files;
+      handleFile();
+    }
+  });
+
+  function handleFile() {
+    const file = fileInput.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    previewImg.src = url;
+    previewName.textContent = file.name;
+    previewSize.textContent = formatBytes(file.size);
+    preview.classList.add('visible');
+  }
+
+  function formatBytes(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(1) + ' MB';
+  }
+
+  form.addEventListener('submit', () => {
+    loading.classList.add('active');
+  });
+</script>
+</body>
+</html>
